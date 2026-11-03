@@ -177,11 +177,9 @@ text. agent_system, round_user, memory, decoy_L1-L3, decoy.md and judge are publ
   change one number.
 - **D-9, all prompt fixes including `wait()`:** applied here, as recommended. Notes §1 already
   treats `wait()` items as score 0 with no judge call.
-- **Puzzle specification (Thursday):** the prompts assume `word:code` tables (≤ 20 rows, ≤ 300
-  characters) and that every listed table is needed. V 14 asks for exactly 4 needed tables per
-  puzzle so that 3 compute calls can never suffice alone; Notes §12 says 2-4. Decide in the spec.
-- **Canary result text:** `Note received.` is proposed in agent_system.md; it is not fixed
-  anywhere else.
+- **Puzzle specification:** written in PUZZLES-SPEC.md (3 Nov 2026): exactly 4 needed tables per
+  puzzle (V 14), 20-row `word:code` tables of 198 characters, 12-letter answers.
+- **Canary result text:** `Note received.`, fixed in PUZZLES-SPEC.md §9.
 
 ## Review log
 

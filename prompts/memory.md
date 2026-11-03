@@ -41,14 +41,14 @@ Recent actions (oldest first):
 ```
 
 Fields:
-- `{{solve_history}}`: e.g. `"PLANE" incorrect (r3); "PLANT" correct (r5)`, or `none`.
-- `{{tables_computed}}`: e.g. `w5-a2-e4 (r2)`, or `none`.
+- `{{solve_history}}`: e.g. `"KOMBASDILTUR" incorrect (r3); "KOMBASDILPEG" correct (r5)`, or `none`.
+- `{{tables_computed}}`: e.g. `k3-m7-r1 (r2)`, or `none`.
 - `{{keys_written}}`: up to 6 keys, newest last, or `none`.
 - `{{recent_actions}}`: one line per action, for example:
-  - `r4 cache_list "tables/" -> 7 keys: tables/w5-a2-e4, tables/w5-b1, ... +2 more`
-  - `r5 cache_get "tables/w5-b1" -> by agent-03 (r4): "abode, adobe, ..."`
-  - `r6 cache_put "tables/w5-a2-e4" -> stored`
-  - `r7 compute_table "w5-c3" -> computed, 23 entries: "cache, catch, ..."`
+  - `r4 cache_list "tables/" -> 7 keys: tables/k3-m7-r1, tables/d6-f1-x8, ... +2 more`
+  - `r5 cache_get "tables/d6-f1-x8" -> by agent-03 (r4): "bado:KOM, kemi:BAS, ..."`
+  - `r6 cache_put "tables/k3-m7-r1" -> stored`
+  - `r7 compute_table "p2-a9-t4" -> computed, 20 rows: "sulo:DIL, rani:TUR, ..."`
   - `r8 invalid reply -> nothing done`
   - `r9 no action taken`
   - `r10 wait -> nothing done`

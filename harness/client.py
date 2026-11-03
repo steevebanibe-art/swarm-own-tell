@@ -140,6 +140,40 @@ def cache_write_multiplier(request: dict[str, Any]) -> float:
     return CACHE_WRITE_5M_MULTIPLIER
 
 
+CACHE_TTLS = (None, "5m", "1h")
+
+
+def cached_system(text: str, ttl: str | None = None) -> list[dict[str, Any]]:
+    """System prompt as one text block marked for prompt caching.
+
+    Pass the result as ``system=``. ``ttl`` None (the API default, 5 minutes)
+    or "5m" or "1h"; a 1-hour write costs more (see ``cache_write_multiplier``).
+    The cached prefix must be byte-identical between calls (same tools, same
+    system text), and a prefix shorter than the model's minimum cacheable
+    length is silently not cached: check ``cache_creation_input_tokens`` /
+    ``cache_read_input_tokens`` in the usage of the first calls.
+    """
+    if ttl not in CACHE_TTLS:
+        raise ValueError(f"ttl must be one of {CACHE_TTLS}, got {ttl!r}")
+    if not isinstance(text, str) or not text:
+        raise ValueError("cached_system needs a non-empty string")
+    control: dict[str, Any] = {"type": "ephemeral"}
+    if ttl is not None:
+        control["ttl"] = ttl
+    return [{"type": "text", "text": text, "cache_control": control}]
+
+
+def is_network_error(exc: BaseException) -> bool:
+    """Connection errors and timeouts (left after the client's own retries).
+
+    Meant as ``run_tasks(..., transient=is_network_error)``: such a task is put
+    back in the queue instead of being written as an error, and the queue
+    pauses while most tasks fail this way. ``is_retryable`` is a wider choice
+    (also 429 and 5xx).
+    """
+    return isinstance(exc, (anthropic.APITimeoutError, anthropic.APIConnectionError))
+
+
 def request_hash(request: dict[str, Any]) -> str:
     """sha256 of the canonical JSON of the full request (model, params, prompt)."""
     return hashlib.sha256(canonical_json(request).encode("utf-8")).hexdigest()

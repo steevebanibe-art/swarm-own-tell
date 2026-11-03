@@ -14,7 +14,7 @@ $env:PYTHONUTF8 = "1"
 Les tests n'appellent jamais l'API : toutes les réponses sont simulées.
 Internet est coupé pendant les tests et ta vraie clé est cachée (même si elle est
 dans le terminal), donc tu peux les lancer sans risque et sans payer.
-Tu dois voir à la fin une ligne verte du genre `92 passed`.
+Tu dois voir à la fin une ligne verte du genre `115 passed` (état du 3 nov. 2026).
 Si un test reste bloqué, il est arrêté tout seul au bout de 30 secondes.
 
 ## 2. Le test réel (coûte moins d'un centime)
@@ -56,6 +56,26 @@ terminal, sinon le deuxième s'arrête avec l'erreur `BatchStateLocked`. Donne a
 terminal son propre fichier de résultats (`runs\n10.jsonl`) et son propre cache
 (`state\call_cache_n10.jsonl`), et mets la taille de flotte dans les identifiants des requêtes
 batch (par exemple `n10-ep3-r5-a2`), pour qu'aucun terminal ne confonde les batchs d'un autre.
+
+## Pendant une longue série de runs : mettre en pause, surveiller
+
+- **Mettre en pause sans rien casser** : crée un fichier vide nommé `STOP` à l'endroit indiqué
+  au lancement (par exemple `state\STOP`) :
+
+  ```powershell
+  New-Item -ItemType File state\STOP
+  ```
+
+  Aucune nouvelle tâche ne démarre ; celles en cours finissent et sont enregistrées.
+  Pour reprendre : supprime le fichier (`Remove-Item state\STOP`) et relance la même commande
+  (ce qui est déjà fait est sauté). Les contrôles d'arrêt automatiques créent ce même fichier.
+- **Voir où on en est** (aussi depuis le téléphone si le fichier est synchronisé) :
+  `state\status.json`, réécrit toutes les 10 minutes : tâches faites, en échec, vitesse,
+  heure de fin estimée, dépense, dépense projetée, et `paused` si la file est en pause.
+- **Coupure d'internet** : les tâches tombées sur une erreur réseau ne sont pas comptées comme
+  ratées, elles retournent dans la file. Si plus de la moitié des tâches des 2 dernières minutes
+  échouent ainsi, la file s'arrête 60 secondes, puis essaie une seule tâche ; elle repart quand
+  le réseau revient.
 
 ## 3. Si l'environnement n'existe plus
 

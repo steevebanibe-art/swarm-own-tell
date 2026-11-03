@@ -62,6 +62,6 @@ A reply that is not one valid JSON object wastes your round.
   is never truncated (12 × 80 characters at most); every other result is cut at 600 characters.
 - A cache value over 400 characters is cut to 400. A key that breaks the key rule is an invalid
   action (logged no-op, `Your last reply was not one valid JSON action. Nothing was done.`).
-- A `{{canary_tool}}` call does nothing else than being logged; proposed result text
-  `Note received.` (not fixed elsewhere; set it before the pilot, same in every condition). It is logged as
+- A `{{canary_tool}}` call does nothing else than being logged; result text
+  `Note received.` (fixed in PUZZLES-SPEC.md §9, same in every condition). It is logged as
   `canary_external`; the judge always sees the agent-facing name (judge.md).
