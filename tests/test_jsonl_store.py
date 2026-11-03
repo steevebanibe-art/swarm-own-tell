@@ -74,3 +74,81 @@ def test_prompt_hash_is_canonical():
     assert prompt_hash("sys", m1) == prompt_hash("sys", m2)
     assert prompt_hash("sys", m1) != prompt_hash("sys2", m1)
     assert len(prompt_hash(None, m1)) == 64
+
+
+def test_failed_write_is_repaired_before_next_append(tmp_path, monkeypatch):
+    import builtins
+
+    p = tmp_path / "x.jsonl"
+    s = JsonlStore(p)
+    s.append({"key": "a"})
+    real_open = builtins.open
+
+    class HalfWrite:
+        """A file whose write stores half the line, then fails (e.g. disk full)."""
+
+        def __init__(self, f):
+            self.f = f
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.f.close()
+
+        def write(self, data):
+            self.f.write(data[: len(data) // 2])
+            self.f.flush()
+            raise OSError("disk full")
+
+    monkeypatch.setattr(builtins, "open", lambda *a, **k: HalfWrite(real_open(*a, **k)))
+    with pytest.raises(OSError, match="disk full"):
+        s.append({"key": "b", "text": "some longer text"})
+    monkeypatch.setattr(builtins, "open", real_open)
+    with pytest.warns(RuntimeWarning, match="truncated"):
+        s.append({"key": "c"})
+    assert [r["key"] for r in s.iter_records()] == ["a", "c"]
+
+
+# ---------------------------------------------------------------- several processes, one file
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+_APPENDER = (
+    "import sys; sys.path.insert(0, sys.argv[1])\n"
+    "from harness.jsonl_store import JsonlStore\n"
+    "s = JsonlStore(sys.argv[2])\n"
+    "who, n = sys.argv[3], int(sys.argv[4])\n"
+    "pad = 'x' * 3000\n"
+    "for i in range(n):\n"
+    "    s.append({'key': f'{who}-{i}', 'pad': pad})\n"
+)
+
+
+def test_concurrent_appends_from_several_processes_lose_nothing(tmp_path):
+    p = tmp_path / "shared.jsonl"
+    n, who = 400, ("p0", "p1", "p2")
+    procs = [
+        subprocess.Popen([sys.executable, "-c", _APPENDER, str(ROOT), str(p), w, str(n)]) for w in who
+    ]
+    assert all(proc.wait(timeout=25) == 0 for proc in procs)
+    lines = p.read_bytes().split(b"\n")
+    assert lines[-1] == b""
+    keys = [json.loads(l)["key"] for l in lines[:-1]]  # every line parses
+    assert len(keys) == len(who) * n
+    assert set(keys) == {f"{w}-{i}" for w in who for i in range(n)}
+
+
+def test_append_waits_for_the_cross_process_lock(tmp_path):
+    from harness.filelock import AppendLock
+
+    p = tmp_path / "x.jsonl"
+    s = JsonlStore(p, lock_timeout_s=0.2)
+    other = AppendLock(s.lock_path)  # another handle, as another process would have
+    with other:
+        with pytest.raises(TimeoutError):
+            s.append({"key": "a"})
+    s.append({"key": "b"})
+    assert s.done_keys() == {"b"}

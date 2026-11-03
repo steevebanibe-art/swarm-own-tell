@@ -3,6 +3,8 @@
 Each ``append`` writes one JSON line, flushes and calls ``os.fsync`` so a crash
 loses at most the line being written. A truncated last line (crash mid-write)
 is detected, reported with a warning and cut off before the next append.
+Appends and repairs hold a short cross-process lock (``<file>.append-lock``),
+so several processes may append to one file without losing lines.
 Files are UTF-8; paths may contain spaces (Windows-safe, uses pathlib).
 """
 
@@ -17,6 +19,8 @@ import threading
 import warnings
 from pathlib import Path
 from typing import Any, Iterator, Mapping
+
+from harness.filelock import AppendLock
 
 
 def canonical_json(obj: Any) -> str:
@@ -35,20 +39,30 @@ def prompt_hash(system: Any, messages: Any) -> str:
 
 
 class JsonlStore:
-    """Append-only JSONL file keyed by a field (default ``"key"``)."""
+    """Append-only JSONL file keyed by a field (default ``"key"``).
 
-    def __init__(self, path: str | os.PathLike[str], key_field: str = "key") -> None:
+    Safe to append from several processes at once: every append (and every
+    tail repair) holds a short cross-process lock on ``<file>.append-lock``.
+    Without it, Windows ``O_APPEND`` (seek to end, then write) lets two
+    processes write at the same offset and silently overwrite a line.
+    ``lock_timeout_s``: how long an append waits for that lock before
+    raising ``TimeoutError``.
+    """
+
+    def __init__(self, path: str | os.PathLike[str], key_field: str = "key", *, lock_timeout_s: float = 60.0) -> None:
         self.path = Path(path)
         self.key_field = key_field
         self._lock = threading.Lock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock_path = self.path.with_name(self.path.name + ".append-lock")
+        self._xlock = AppendLock(self.lock_path, timeout_s=lock_timeout_s)
         self._repaired = False
         self.repair()
 
     # ------------------------------------------------------------------ repair
     def repair(self) -> bool:
         """Cut off a truncated last line. Returns True if the file was changed."""
-        with self._lock:
+        with self._lock, self._xlock:
             changed = self._repair_locked()
             self._repaired = True
             return changed
@@ -109,14 +123,20 @@ class JsonlStore:
             # UTF-8 form. \u-escaping it keeps the line valid JSON, and json.loads
             # gives back the same string, so one odd record cannot stop a run.
             data = (json.dumps(dict(record), ensure_ascii=True, default=str) + "\n").encode("ascii")
-        with self._lock:
+        with self._lock, self._xlock:  # threads of this process, then other processes
             if not self._repaired:
                 self._repair_locked()
                 self._repaired = True
-            with open(self.path, "ab") as f:
-                f.write(data)
-                f.flush()
-                os.fsync(f.fileno())
+            try:
+                with open(self.path, "ab") as f:
+                    f.write(data)
+                    f.flush()
+                    os.fsync(f.fileno())
+            except BaseException:
+                # A failed write (disk full, Ctrl-C) may leave half a line: check
+                # the tail again before the next append instead of gluing onto it.
+                self._repaired = False
+                raise
 
     # ------------------------------------------------------------------ read
     def iter_records(self) -> Iterator[dict[str, Any]]:

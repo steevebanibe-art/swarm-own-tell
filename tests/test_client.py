@@ -135,8 +135,8 @@ async def test_retries_exhausted(tmp_path, mock_api, fake_clock):
 
 
 async def test_connection_error_retried_and_charged_as_estimate(tmp_path, mock_api, fake_clock):
-    def boom(request):
-        raise httpx2.ConnectError("reset", request=request)
+    def boom(request):  # the request was sent, then the connection dropped
+        raise httpx2.ReadError("reset", request=request)
 
     mock_api.message_responses += [boom, (200, message_body(), RATE_HEADERS)]
     llm, ledger, _ = build(tmp_path, mock_api, fake_clock)
@@ -144,6 +144,31 @@ async def test_connection_error_retried_and_charged_as_estimate(tmp_path, mock_a
     assert r.attempts == 2
     lines = read_lines(tmp_path / "ledger.jsonl")
     assert len(lines) == 2 and lines[0]["estimated"] is True and lines[0]["error"] == "APIConnectionError"
+
+
+@pytest.mark.parametrize("exc_type", [httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeout])
+async def test_connect_failure_retried_and_not_charged(tmp_path, mock_api, fake_clock, exc_type):
+    def boom(request):  # no connection could be opened: nothing was sent
+        raise exc_type("no route", request=request)
+
+    mock_api.message_responses += [boom, boom, (200, message_body(), RATE_HEADERS)]
+    llm, ledger, _ = build(tmp_path, mock_api, fake_clock)
+    r = await llm.call("k", model=M, max_tokens=64, messages=MSGS)
+    assert r.attempts == 3
+    lines = read_lines(tmp_path / "ledger.jsonl")
+    assert len(lines) == 1 and "estimated" not in lines[0]
+    assert ledger.spent_usd == pytest.approx(r.cost_usd) and ledger.outstanding_usd == 0
+
+
+async def test_read_timeout_is_charged_as_estimate(tmp_path, mock_api, fake_clock):
+    def slow(request):  # sent, but no answer in time: it may still be billed
+        raise httpx2.ReadTimeout("slow", request=request)
+
+    mock_api.message_responses += [slow, (200, message_body(), RATE_HEADERS)]
+    llm, ledger, _ = build(tmp_path, mock_api, fake_clock)
+    await llm.call("k", model=M, max_tokens=64, messages=MSGS)
+    lines = read_lines(tmp_path / "ledger.jsonl")
+    assert len(lines) == 2 and lines[0]["estimated"] is True and lines[0]["error"] == "APITimeoutError"
 
 
 async def test_budget_cap_blocks_before_any_request(tmp_path, mock_api, fake_clock):

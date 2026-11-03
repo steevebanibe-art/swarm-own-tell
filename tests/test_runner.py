@@ -191,3 +191,20 @@ async def test_keyboard_interrupt_inside_group_is_not_swallowed(tmp_path):
     with pytest.raises(BaseExceptionGroup):
         await run_tasks([{"key": "a"}], worker, store, progress=False)
     assert list(store.iter_records()) == []
+
+
+async def test_worker_returning_its_own_key_is_still_resumed_by_task_key(tmp_path):
+    store = JsonlStore(tmp_path / "r.jsonl")
+    calls = []
+
+    async def worker(task):  # e.g. a worker that returns its last CallResult.to_record()
+        calls.append(task["key"])
+        return {"key": f"{task['key']}/r12/a3", "text": "x"}
+
+    tasks = [{"key": f"ep{i}"} for i in range(3)]
+    await run_tasks(tasks, worker, store, progress=False)
+    stats = await run_tasks(tasks, worker, store, progress=False)  # resume
+    assert stats.skipped == 3 and stats.done == 0
+    assert len(calls) == 3  # nothing re-run, nothing paid twice
+    assert store.done_keys() == {"ep0", "ep1", "ep2"}
+    assert {r["worker_key"] for r in store.iter_records()} == {"ep0/r12/a3", "ep1/r12/a3", "ep2/r12/a3"}

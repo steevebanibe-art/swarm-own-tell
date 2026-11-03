@@ -27,6 +27,10 @@ Money safety: a request that may have reached the API is never released for
 free. After a timeout, a connection error, or a cancellation / Ctrl-C that
 arrives once the request may be on the wire, the call's worst case is written
 to the ledger (``estimated: true``), so the hard cap stays a true upper bound.
+Exception: when no connection could be opened at all (httpx2 ConnectError,
+ConnectTimeout or PoolTimeout under the SDK error), nothing was sent, so the
+reservation is simply released. Otherwise a long network outage would fill the
+ledger with phantom worst-case charges and stop the run on the cap.
 
 Optional response cache (``cache=``, a JsonlStore or a path): every successful
 call is stored by its key together with a hash of the full request. A later
@@ -56,6 +60,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
 
 import anthropic
+import httpx2  # the SDK's transport since anthropic 1.x (installed: 2.4.0 on httpx2 2.16.0)
 from tenacity import AsyncRetrying, RetryCallState, retry_if_exception, stop_after_attempt
 
 from harness.budget import BudgetExceeded, CostLedger, Reservation
@@ -158,6 +163,25 @@ def is_retryable(exc: BaseException) -> bool:
         if exc.status_code == 429:
             return not _is_spend_cap(exc)
         return exc.status_code >= 500
+    return False
+
+
+# Transport errors raised before any byte of the request left this machine:
+# no connection could be opened (DNS failure, refused, connect timeout) or no
+# pooled connection became free. The SDK wraps them as APIConnectionError /
+# APITimeoutError ``from`` the httpx2 error, so they sit on the __cause__ chain.
+_NOT_SENT = (httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeout)
+
+
+def never_sent(exc: BaseException) -> bool:
+    """True when a connection error proves the request was never sent (so never billed)."""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        if isinstance(cur, _NOT_SENT):
+            return True
+        seen.add(id(cur))
+        cur = cur.__cause__  # explicit ``raise ... from`` links only
     return False
 
 
@@ -283,7 +307,10 @@ class LLMClient:
                     self._after_error(exc)
                     raise
                 except (anthropic.APITimeoutError, anthropic.APIConnectionError) as exc:
-                    self._charge_unknown(reservation, key, model, exc)
+                    if never_sent(exc):
+                        self.ledger.release(reservation)  # no connection: nothing can be billed
+                    else:
+                        self._charge_unknown(reservation, key, model, exc)
                     if permit is not None:
                         self.limiter.reconcile(permit, None, None)
                     raise

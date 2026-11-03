@@ -317,3 +317,125 @@ async def test_cancel_during_create_keeps_pending_entry(tmp_path, fake_clock):
     saved = json.loads(state.read_text(encoding="utf-8"))["batches"]
     assert len(saved) == 1 and saved[0]["id"] is None and saved[0]["custom_ids"] == ["a"]
     assert ledger.outstanding_usd > 0
+
+
+# ---------------------------------------------------------------- lost create, foreign batches on the same key
+class AgingFakeBatches(ListingFakeBatches):
+    """Every list call ages each batch by one poll (so batches end over time),
+    and batches of other processes can be planted on the server."""
+
+    def plant(self, bid: str, cids, created_ts: float, ended: bool = False) -> None:
+        self.batches[bid] = {"requests": [{"custom_id": c, "params": params("z")} for c in cids]}
+        self.created_ts[bid] = created_ts
+        if ended:
+            self.polls[bid] = self.polls_before_end + 1
+
+    def handle(self, request: httpx2.Request) -> httpx2.Response:
+        if request.method == "GET" and request.url.path == "/v1/messages/batches":
+            for b in self.batches:
+                self.polls[b] = self.polls.get(b, 0) + 1
+        return super().handle(request)
+
+
+async def test_lost_create_with_foreign_batch_is_not_misadopted(tmp_path, mock_api, fake_clock):
+    import time as _time
+
+    fake = AgingFakeBatches(fail="lost_response")
+    fake.polls_before_end = 2  # both batches still processing at the first look
+    fake.plant("msgbatch_FOREIGN", ["x0", "x1"], _time.time() - 120)  # another process, same size
+    _routes(mock_api, fake)
+    ledger = CostLedger(tmp_path / "ledger.jsonl", hard_cap_usd=5.0)
+    logs = []
+    br = BatchRunner(mock_api.client(), ledger, tmp_path / "s.json", sleep=fake_clock.sleep, log=logs.append)
+    reqs = [("a", params("one")), ("b", params("two"))]
+    with pytest.raises(anthropic.APIConnectionError):
+        await br.submit(reqs)
+    mine = next(b for b in fake.batches if b != "msgbatch_FOREIGN")
+    await br.wait()  # ambiguous at first; resolved by custom ids once both batches end
+    assert any("WARNING" in l and "could be" in l for l in logs)
+    assert [b["id"] for b in br.state["batches"]] == [mine]
+    res = await br.collect()
+    assert set(res) == {"a", "b"}
+    keys = [l["key"] for l in read_lines(tmp_path / "ledger.jsonl")]
+    assert sorted(keys) == [f"batch:{mine}:a", f"batch:{mine}:b"]  # nothing of the other process settled
+    assert ledger.outstanding_usd == 0
+    assert len(fake.created) == 1  # not resubmitted
+
+
+async def test_wrong_unverified_adoption_is_undone_before_settling(tmp_path, mock_api, fake_clock):
+    import time as _time
+
+    fake = ListingFakeBatches(fail="not_received")  # our create never reached the server
+    fake.batches["msgbatch_FOREIGN"] = {"requests": [{"custom_id": "x0", "params": params("z")}]}
+    fake.created_ts["msgbatch_FOREIGN"] = _time.time() - 120  # still processing when we look
+    _routes(mock_api, fake)
+    ledger = CostLedger(tmp_path / "ledger.jsonl", hard_cap_usd=5.0)
+    logs = []
+    br = BatchRunner(mock_api.client(), ledger, tmp_path / "s.json", sleep=fake_clock.sleep, log=logs.append)
+    with pytest.raises(anthropic.APIConnectionError):
+        await br.submit([("a", params("one"))])
+    held = ledger.outstanding_usd
+    await br.wait()  # the single candidate is adopted unverified, then ends
+    assert br.state["batches"][0]["id"] == "msgbatch_FOREIGN" and br.state["batches"][0]["verified"] is False
+    assert ledger.outstanding_usd == pytest.approx(held)
+    res = await br.collect()
+    assert res == {}  # the other process's results are neither returned nor settled
+    assert ledger.n_lines == 0
+    assert any("is not ours" in l for l in logs)
+    assert br.state["batches"] == [] and ledger.outstanding_usd == 0  # dropped: nothing of ours exists
+    assert await br.submit([("a", params("one"))]) != []  # so it is sent again
+    assert fake.created == [["a"]]
+
+
+async def test_candidate_created_long_after_the_lost_create_is_ignored(tmp_path, mock_api, fake_clock):
+    import time as _time
+
+    now = _time.time()
+    fake = ListingFakeBatches()
+    fake.batches["msgbatch_LATER"] = {"requests": [{"custom_id": "x0", "params": params("z")}]}
+    fake.created_ts["msgbatch_LATER"] = now - 60  # made by someone else long after our create
+    _routes(mock_api, fake)
+    state = tmp_path / "s.json"
+    _write_state(state, [{"id": None, "pending_id": "pending_old", "created": now - 7200, "custom_ids": ["a"],
+                          "models": {"a": M}, "reserved_usd": 0.1, "status": "pending", "collected": False}])
+    ledger = CostLedger(tmp_path / "ledger.jsonl", hard_cap_usd=5.0)
+    br = BatchRunner(mock_api.client(), ledger, state, sleep=fake_clock.sleep, log=None)
+    assert ledger.outstanding_usd == pytest.approx(0.1)
+    await br.wait()
+    assert br.state["batches"] == [] and ledger.outstanding_usd == 0  # dropped, not adopted
+
+
+# ---------------------------------------------------------------- one process per state file
+import subprocess  # noqa: E402
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+_STATE_CHILD = (
+    "import sys; sys.path.insert(0, sys.argv[1])\n"
+    "import anthropic\n"
+    "from harness.batch import BatchRunner, BatchStateLocked\n"
+    "from harness.budget import CostLedger\n"
+    "led = CostLedger(sys.argv[3], hard_cap_usd=1.0)\n"
+    "try:\n"
+    "    BatchRunner(anthropic.AsyncAnthropic(api_key='test-key'), led, sys.argv[2], log=None)\n"
+    "except BatchStateLocked:\n"
+    "    sys.exit(3)\n"
+)
+
+
+def _state_child(state, ledger_path) -> int:
+    return subprocess.run([sys.executable, "-c", _STATE_CHILD, str(ROOT), str(state), str(ledger_path)],
+                          timeout=25).returncode
+
+
+def test_second_process_on_same_state_file_is_refused(tmp_path, mock_api):
+    state = tmp_path / "state" / "batches.json"
+    ledger = CostLedger(tmp_path / "ledger_n5.jsonl", hard_cap_usd=1.0)
+    br = BatchRunner(mock_api.client(), ledger, state, log=None)
+    br2 = BatchRunner(mock_api.client(), ledger, state, log=None)  # same process: allowed
+    br.close()
+    # another process would erase our batches from the file: refused while br2 holds it
+    assert _state_child(state, tmp_path / "ledger_n10.jsonl") == 3
+    br2.close()
+    assert _state_child(state, tmp_path / "ledger_n10.jsonl") == 0  # free once closed

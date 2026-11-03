@@ -14,7 +14,7 @@ $env:PYTHONUTF8 = "1"
 Les tests n'appellent jamais l'API : toutes les réponses sont simulées.
 Internet est coupé pendant les tests et ta vraie clé est cachée (même si elle est
 dans le terminal), donc tu peux les lancer sans risque et sans payer.
-Tu dois voir à la fin une ligne verte du genre `79 passed`.
+Tu dois voir à la fin une ligne verte du genre `92 passed`.
 Si un test reste bloqué, il est arrêté tout seul au bout de 30 secondes.
 
 ## 2. Le test réel (coûte moins d'un centime)
@@ -50,6 +50,12 @@ Si tu lances un deuxième terminal sur le même registre, il s'arrête tout de s
 avec l'erreur `LedgerLocked` (c'est voulu : sinon chacun croirait avoir tout le budget).
 Pour lancer plusieurs tailles de flotte en même temps, donne à chaque terminal
 son propre registre et sa propre part du plafond (par exemple 4 registres à 5,50 $).
+
+Même règle pour les batchs : un fichier d'état (`state\batches_n10.json` par exemple) par
+terminal, sinon le deuxième s'arrête avec l'erreur `BatchStateLocked`. Donne aussi à chaque
+terminal son propre fichier de résultats (`runs\n10.jsonl`) et son propre cache
+(`state\call_cache_n10.jsonl`), et mets la taille de flotte dans les identifiants des requêtes
+batch (par exemple `n10-ep3-r5-a2`), pour qu'aucun terminal ne confonde les batchs d'un autre.
 
 ## 3. Si l'environnement n'existe plus
 

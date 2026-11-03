@@ -139,7 +139,8 @@ async def run_tasks(
 ) -> RunStats:
     """Run ``worker(task)`` for every task not yet in ``store``.
 
-    The worker returns a dict; the runner adds ``key`` (if missing) and
+    The worker returns a dict; the runner sets ``key`` to the task key (a
+    different ``key`` returned by the worker is moved to ``worker_key``), adds
     ``status="ok"`` (if missing) and appends it to the store.
     ``progress``: True prints to stdout, False is silent, a callable receives
     each progress line.
@@ -205,7 +206,12 @@ async def run_tasks(
             record_error(k, exc)
             return
         record = dict(result or {})
-        record.setdefault("key", k)
+        # The stored key is always the task key, or the task would never count as
+        # done and would run (and be paid) again on every resume. A different key
+        # from the worker (e.g. a CallResult's call key) is kept as worker_key.
+        if "key" in record and record["key"] != k:
+            record["worker_key"] = record["key"]
+        record["key"] = k
         record.setdefault("status", "ok")
         store.append(record)
         stats.done += 1

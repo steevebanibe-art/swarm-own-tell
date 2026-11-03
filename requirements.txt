@@ -13,9 +13,9 @@
 # --- runtime
 anthropic==2.4.0          # SDK 2.x: transport is httpx2 (not httpx)
 tenacity==9.2.1           # retries in harness/client.py
+httpx2==2.16.0            # also imported directly (harness/client.py, tests): the SDK's own HTTP library
 
-# dependencies of anthropic (pinned for reproducibility)
-httpx2==2.16.0
+# other dependencies of anthropic (pinned for reproducibility)
 httpcore2==2.16.0
 h11==0.16.0
 idna==3.20

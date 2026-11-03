@@ -24,11 +24,34 @@ Ambiguous creates: before ``batches.create`` the chunk is written to the state
 file as a *pending* entry and its reservation is kept. If the call fails in a
 way that does not prove the batch was refused (connection error, timeout,
 5xx, Ctrl-C / cancellation), the entry stays pending. The next ``submit``,
-``wait`` or ``collect`` lists recent batches on the server and adopts the one
-created at that time with the same number of requests; only if none exists
-is the entry dropped and its reservation released. A 4xx is a clear refusal:
-the entry is dropped at once. ``create`` is sent with SDK retries disabled, so
-the SDK itself cannot create a second copy of a chunk.
+``wait`` or ``collect`` lists the server's batches and keeps as candidates
+those not already in this state file, with the same number of requests,
+created inside the window [created - clock slack, created + create timeout +
+clock slack]. The listing covers the whole API key, so a candidate may belong
+to another process; identity is therefore checked by custom ids:
+
+* a candidate that has ended is adopted only if the custom ids of its
+  results equal the entry's; otherwise it is rejected for good;
+* if exactly one unended candidate remains, it is adopted *unverified*, and
+  ``collect`` checks its custom ids before settling anything; on a mismatch it
+  is un-adopted (nothing settled, reservation kept) and the entry is pending
+  again;
+* if several unended candidates remain, nothing is adopted: the entry stays
+  pending with its reservation held, a warning is logged, and ``wait`` keeps
+  checking until the candidates end;
+* if none remains, the entry is dropped and its reservation released (its
+  custom ids are submitted again by the next ``submit``).
+
+A 4xx is a clear refusal: the entry is dropped at once. ``create`` is sent
+with SDK retries disabled, so the SDK itself cannot create a second copy of a
+chunk. Custom ids should be unique across every process that shares the API
+key (e.g. prefix them with the run name), so that the identity check is
+decisive.
+
+One process per state file: the runner takes an OS lock on
+``<state>.lock`` (released by ``close()``, garbage collection or process
+exit); a second *process* gets ``BatchStateLocked``. Processes that run at
+the same time each need their own state file.
 """
 
 from __future__ import annotations
@@ -47,12 +70,18 @@ import anthropic
 
 from harness.budget import CostLedger, Reservation
 from harness.client import cache_write_multiplier, check_params, estimate_input_tokens
+from harness.filelock import ProcessFileLock
 from harness.pricing import cost_usd, usage_to_dict
 
 MAX_REQUESTS_PER_BATCH = 100_000  # documented hard limit
 MAX_BYTES_PER_BATCH = 256 * 1024 * 1024  # documented hard limit
 CUSTOM_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 CLOCK_SLACK_S = 600.0  # tolerated skew between the local clock and the server's created_at
+CREATE_TIMEOUT_S = 600.0  # timeout of one batches.create call (bounds when the server can stamp it)
+
+
+class BatchStateLocked(RuntimeError):
+    """Raised when another process already uses the batch state file."""
 
 
 @dataclass
@@ -85,6 +114,8 @@ class BatchRunner:
         max_requests_per_batch: int = 10_000,
         max_bytes_per_batch: int = 128 * 1024 * 1024,
         poll_interval_s: float = 60.0,
+        create_timeout_s: float = CREATE_TIMEOUT_S,
+        clock_slack_s: float = CLOCK_SLACK_S,
         sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep,
         log: Callable[[str], None] | None = print,
     ) -> None:
@@ -98,10 +129,26 @@ class BatchRunner:
         self.max_requests = max_requests_per_batch
         self.max_bytes = max_bytes_per_batch
         self.poll_interval_s = poll_interval_s
+        self.create_timeout_s = float(create_timeout_s)
+        self.clock_slack_s = float(clock_slack_s)
         self._sleep = sleep
         self._log = log
         self._reservations: dict[str, Reservation] = {}
-        self.state: dict[str, Any] = self._load()
+        lock_path = self.state_path.with_name(self.state_path.name + ".lock")
+        # One process per state file: each process rewrites the whole file from
+        # its own view, so a second one would erase the first one's batches.
+        self._file_lock = ProcessFileLock(
+            lock_path,
+            BatchStateLocked,
+            f"{self.state_path} is already in use by another process (lock file {lock_path}). "
+            "Use one process per batch state file: stop the other process, or give each "
+            "process its own state file (and its own ledger file).",
+        )
+        try:
+            self.state: dict[str, Any] = self._load()
+        except BaseException:
+            self._file_lock.close()
+            raise
         # Re-take the reservations of batches submitted (or maybe submitted) but
         # not yet collected, minus what the ledger already holds for them.
         for b in self.state["batches"]:
@@ -115,6 +162,16 @@ class BatchRunner:
                 f"[batch] WARNING: batches already submitted take the total past the cap "
                 f"({self.ledger.summary()}); no new spending will be allowed"
             )
+
+    def close(self) -> None:
+        """Release this runner's hold on the state file (idempotent)."""
+        self._file_lock.close()
+
+    def __enter__(self) -> "BatchRunner":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
 
     # ----------------------------------------------------------------- state
     def _load(self) -> dict[str, Any]:
@@ -209,7 +266,9 @@ class BatchRunner:
             raise
         client = self.client
         if hasattr(client, "with_options"):
-            client = client.with_options(max_retries=0)  # never let the SDK create a second copy
+            # No SDK retry (it could create a second copy), and a bounded timeout
+            # (it bounds the server time stamp that _reconcile_pending looks for).
+            client = client.with_options(max_retries=0, timeout=self.create_timeout_s)
         try:
             batch = await client.messages.batches.create(
                 requests=[{"custom_id": cid, "params": params} for cid, params, _, _ in chunk]
@@ -225,20 +284,45 @@ class BatchRunner:
         self._emit(f"[batch] created {batch.id} with {len(chunk)} requests (worst case ${worst:.4f})")
         return batch.id
 
-    def _adopt(self, entry: dict[str, Any], batch_id: str, status: str | None) -> None:
+    def _adopt(self, entry: dict[str, Any], batch_id: str, status: str | None, *, verified: bool = True) -> None:
         pending_id = entry.pop("pending_id")
         entry["id"] = batch_id
         entry["status"] = status
+        if verified:
+            entry.pop("verified", None)
+        else:
+            entry["verified"] = False  # collect() checks its custom ids before settling
         old = self._reservations.pop(pending_id, None)
         amount = old.amount_usd if old is not None else float(entry["reserved_usd"])
         self._reservations[batch_id] = self.ledger.reserve(amount, force=True, tag=f"batch:{batch_id}")
         self.ledger.release(old)
         self.ledger.release_tag(f"batch:{pending_id}")
 
+    def _unadopt(self, entry: dict[str, Any]) -> None:
+        """Turn a wrongly adopted entry back into a pending one; its reservation is kept."""
+        batch_id = entry["id"]
+        pending_id = "pending_" + uuid.uuid4().hex
+        entry["rejected_ids"] = sorted(set(entry.get("rejected_ids", [])) | {batch_id})
+        entry["id"] = None
+        entry["pending_id"] = pending_id
+        entry["status"] = "pending"
+        entry.pop("verified", None)
+        entry.pop("request_counts", None)
+        old = self._reservations.pop(batch_id, None)
+        amount = old.amount_usd if old is not None else float(entry["reserved_usd"])
+        self._reservations[pending_id] = self.ledger.reserve(amount, force=True, tag=f"batch:{pending_id}")
+        self.ledger.release(old)
+        self.ledger.release_tag(f"batch:{batch_id}")
+        self._save()
+
     def _drop_pending(self, entry: dict[str, Any]) -> None:
         self.state["batches"] = [b for b in self.state["batches"] if b is not entry]
         self._save()
         self._release_entry(entry["pending_id"])
+
+    async def _result_ids(self, batch_id: str) -> set[str]:
+        stream = await _maybe_await(self.client.messages.batches.results(batch_id))
+        return {item.custom_id async for item in stream}
 
     async def _reconcile_pending(self) -> None:
         """Adopt or drop entries whose create call ended without a clear answer."""
@@ -246,35 +330,72 @@ class BatchRunner:
         if not pend:
             return
         known = {b["id"] for b in self.state["batches"] if b.get("id")}
-        oldest = pend[0]["created"] - CLOCK_SLACK_S
-        candidates = []
+        oldest = pend[0]["created"] - self.clock_slack_s
+        listed = []
         async for info in self.client.messages.batches.list(limit=100):  # newest first
             created = _ts(info.created_at)
             if created < oldest:
                 break
             if info.id not in known:
-                candidates.append((created, info))
-        candidates.sort(key=lambda c: c[0])
+                listed.append((created, info))
         for b in pend:
-            n = len(b["custom_ids"])
-            match = next(
-                (c for c in candidates if c[0] >= b["created"] - CLOCK_SLACK_S and _total(c[1]) == n), None
-            )
-            if match is not None:
-                candidates.remove(match)
-                self._adopt(b, match[1].id, match[1].processing_status)
-                self._save()
-                self._emit(f"[batch] adopted {match[1].id} for a create whose response was lost ({n} requests)")
+            await self._resolve_pending(b, listed, known)
+
+    async def _resolve_pending(self, b: dict[str, Any], listed: list, known: set[str]) -> None:
+        n = len(b["custom_ids"])
+        lo = b["created"] - self.clock_slack_s
+        hi = b["created"] + self.create_timeout_s + self.clock_slack_s
+        rejected = set(b.get("rejected_ids", []))
+        cands = [
+            (c, info) for c, info in listed
+            if lo <= c <= hi and _total(info) == n and info.id not in known and info.id not in rejected
+        ]
+        cands.sort(key=lambda ci: abs(ci[0] - b["created"]))  # closest to our create first
+        want = set(b["custom_ids"])
+        still_open = []
+        for _, info in cands:
+            if info.processing_status == "ended":
+                if await self._result_ids(info.id) == want:  # identity proven by its custom ids
+                    self._adopt(b, info.id, "ended")
+                    known.add(info.id)
+                    self._save()
+                    self._emit(f"[batch] adopted {info.id} for a create whose response was lost ({n} requests, custom ids checked)")
+                    return
+                rejected.add(info.id)  # someone else's batch
             else:
-                self._drop_pending(b)
-                self._emit(f"[batch] create of {n} requests did not reach the server; they will be resubmitted")
+                still_open.append(info)
+        if rejected:
+            b["rejected_ids"] = sorted(rejected)
+        if not still_open:
+            self._drop_pending(b)
+            self._emit(f"[batch] create of {n} requests did not reach the server; they will be resubmitted")
+            return
+        if len(still_open) == 1:
+            info = still_open[0]
+            self._adopt(b, info.id, info.processing_status, verified=False)
+            known.add(info.id)
+            self._save()
+            self._emit(
+                f"[batch] adopted {info.id} for a create whose response was lost ({n} requests); "
+                "its custom ids are checked before any result is settled"
+            )
+            return
+        self._save()
+        self._emit(
+            f"[batch] WARNING: {len(still_open)} server batches ({', '.join(i.id for i in still_open)}) could be "
+            f"the lost create of {n} requests; none adopted, reservation kept; resolved by custom ids once they end"
+        )
 
     # ----------------------------------------------------------------- poll
     async def wait(self, timeout_s: float | None = None) -> None:
-        """Poll every pending batch until its processing_status is "ended"."""
-        await self._reconcile_pending()
+        """Poll every pending batch until its processing_status is "ended".
+
+        Also keeps resolving lost creates that are still ambiguous (several
+        candidate batches on the server) until they are adopted or dropped.
+        """
         start = time.monotonic()
         while True:
+            await self._reconcile_pending()
             pending = [b for b in self.state["batches"] if b.get("id") and b.get("status") != "ended"]
             for b in pending:
                 info = await self.client.messages.batches.retrieve(b["id"])
@@ -287,7 +408,7 @@ class BatchRunner:
                     }
             if pending:
                 self._save()
-            still = [b for b in self.state["batches"] if b.get("id") and b.get("status") != "ended"]
+            still = [b for b in self.state["batches"] if not b.get("id") or b.get("status") != "ended"]
             if not still:
                 return
             done = sum(1 for b in self.state["batches"] if b.get("status") == "ended")
@@ -301,10 +422,24 @@ class BatchRunner:
         """Fetch results of ended batches (any order), settle costs with batch=True."""
         await self._reconcile_pending()
         out: dict[str, BatchItemResult] = {}
-        for b in self.state["batches"]:
+        unadopted = False
+        for b in list(self.state["batches"]):
             if not b.get("id") or b.get("status") != "ended":
                 continue
             stream = await _maybe_await(self.client.messages.batches.results(b["id"]))
+            if b.get("verified") is False:
+                # Adopted after a lost create without proof that it is ours:
+                # check its custom ids before settling anything.
+                items = [item async for item in stream]
+                if {item.custom_id for item in items} != set(b["custom_ids"]):
+                    bid = b["id"]
+                    self._unadopt(b)
+                    unadopted = True
+                    self._emit(f"[batch] WARNING: {bid} is not ours (custom ids differ); un-adopted, nothing settled")
+                    continue
+                b.pop("verified", None)
+                self._save()
+                stream = _aiter(items)
             async for item in stream:
                 r = self._item(b["id"], item)
                 out[r.custom_id] = r
@@ -312,6 +447,8 @@ class BatchRunner:
                 b["collected"] = True
                 self._save()
                 self._release_entry(b["id"])
+        if unadopted:
+            await self._reconcile_pending()  # adopt the right batch, or drop so the next submit resends
         return out
 
     def _item(self, batch_id: str, item: Any) -> BatchItemResult:
@@ -367,6 +504,11 @@ def _total(info: Any) -> int:
     if counts is None:
         return -1
     return sum(int(getattr(counts, k, 0) or 0) for k in ("processing", "succeeded", "errored", "canceled", "expired"))
+
+
+async def _aiter(items: list[Any]):
+    for item in items:
+        yield item
 
 
 async def _maybe_await(value: Any) -> Any:

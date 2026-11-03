@@ -53,8 +53,19 @@ def _no_network(monkeypatch, tmp_path):
     # Windows asyncio event loop uses a local socketpair internally.
     monkeypatch.setattr(socket, "create_connection", guard)
     monkeypatch.setattr(socket, "getaddrinfo", guard)
-    # Make sure no real credential or endpoint can be picked up from the environment.
-    for var in ANTHROPIC_ENV_VARS:
+    # Make sure no real credential or endpoint can be picked up from the environment:
+    # the explicit list, every other ANTHROPIC_* variable (anthropic 2.4.0 also reads
+    # ANTHROPIC_WORKSPACE_ID, ANTHROPIC_FOUNDRY_API_KEY, ...) and the cloud-platform
+    # credentials the SDK's Bedrock / Vertex clients would read.
+    import os
+
+    for var in set(ANTHROPIC_ENV_VARS) | {v for v in os.environ if v.upper().startswith("ANTHROPIC_")} | {
+        "AWS_BEARER_TOKEN_BEDROCK",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+    }:
         monkeypatch.delenv(var, raising=False)
     empty_cfg = tmp_path / "_empty_anthropic_config"
     empty_cfg.mkdir()

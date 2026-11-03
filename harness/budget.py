@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from harness.filelock import os_lock, os_unlock
 from harness.jsonl_store import JsonlStore
 from harness.pricing import usage_to_dict, worst_case_cost_usd
 
@@ -70,29 +71,8 @@ class Reservation:
 
 
 # ------------------------------------------------------- one process per file
-def _os_lock(fd: int) -> None:
-    """Non-blocking exclusive lock on byte 0 of ``fd``; OSError if already held."""
-    if os.name == "nt":
-        import msvcrt
-
-        os.lseek(fd, 0, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-    else:  # pragma: no cover - POSIX only
-        import fcntl
-
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-
-def _os_unlock(fd: int) -> None:
-    if os.name == "nt":
-        import msvcrt
-
-        os.lseek(fd, 0, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-    else:  # pragma: no cover - POSIX only
-        import fcntl
-
-        fcntl.flock(fd, fcntl.LOCK_UN)
+_os_lock = os_lock  # kept under the old names
+_os_unlock = os_unlock
 
 
 class _SharedState:
