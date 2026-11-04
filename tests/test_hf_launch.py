@@ -1,6 +1,7 @@
 """Offline checks of the Hugging Face launcher: what is staged and what command runs (no Hub call)."""
 
 import importlib.util
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -10,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("hf_launch", ROOT / "scripts" / "hf_launch.py")
 hf = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hf)
+
+# Staging runs on the laptop only; the Job image has no git.
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
 
 def _repo(tmp_path):
@@ -27,6 +31,7 @@ def _repo(tmp_path):
     return tmp_path
 
 
+@needs_git
 def test_staging_takes_git_files_only(tmp_path):
     repo = _repo(tmp_path)
     files = hf.staged_files(repo)
@@ -34,6 +39,7 @@ def test_staging_takes_git_files_only(tmp_path):
     assert not any(f.startswith((".venv/", "state/")) or f == "secret.txt" for f in files)
 
 
+@needs_git
 def test_stage_code_recreates_the_folder(tmp_path):
     repo = _repo(tmp_path / "repo")
     dest = tmp_path / "stage"
