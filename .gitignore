@@ -5,3 +5,5 @@ __pycache__/
 runs/
 state/
 *.log
+.hf_stage/
+hf_work/

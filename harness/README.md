@@ -75,3 +75,4 @@ Notes
   `episode/round/agent`). The cache returns a stored answer only when the key
   and the full request both match; otherwise it warns and sends the call.
 * Run the tests with `.venv\Scripts\python.exe -m pytest` (fully offline).
+* `scripts/hf_launch.py` (4 Nov 2026, same status): runs a command of this repository as a Hugging Face Job. Code = git-tracked files mounted read-only at `/code`; work folder (state, runs) = a private bucket folder mounted read-write at `/work`; the bucket's privacy is checked before any upload; explicit timeout required; Anthropic key only with `--with-anthropic-key`, as an encrypted Job secret. `selftest` runs this test suite in a Job with its temporary folders on the bucket.

@@ -14,7 +14,7 @@ $env:PYTHONUTF8 = "1"
 Les tests n'appellent jamais l'API : toutes les réponses sont simulées.
 Internet est coupé pendant les tests et ta vraie clé est cachée (même si elle est
 dans le terminal), donc tu peux les lancer sans risque et sans payer.
-Tu dois voir à la fin une ligne verte du genre `115 passed` (état du 3 nov. 2026).
+Tu dois voir à la fin une ligne verte du genre `121 passed` (état du 4 nov. 2026).
 Si un test reste bloqué, il est arrêté tout seul au bout de 30 secondes.
 
 ## 2. Le test réel (coûte moins d'un centime)
@@ -76,6 +76,32 @@ batch (par exemple `n10-ep3-r5-a2`), pour qu'aucun terminal ne confonde les batc
   ratées, elles retournent dans la file. Si plus de la moitié des tâches des 2 dernières minutes
   échouent ainsi, la file s'arrête 60 secondes, puis essaie une seule tâche ; elle repart quand
   le réseau revient.
+
+## Faire tourner sur Hugging Face (Jobs)
+
+Ton compte `Banibe` (PRO) est déjà connecté sur ce PC. Les crédits de calcul du PRO paient les Jobs
+(machine `cpu-basic` : 0,01 $ de l'heure). Le lanceur envoie le code dans un espace PRIVÉ de ton compte
+(il refuse de continuer si cet espace est public), et les résultats (`state\`, `runs\`) restent dans
+cet espace même après la fin du Job.
+
+```powershell
+$env:PYTHONUTF8 = "1"
+.venv\Scripts\python.exe scripts\hf_launch.py selftest
+```
+
+Ça lance les tests sur Hugging Face, sans aucune clé API (quelques centimes au plus). Puis :
+
+```powershell
+.venv\Scripts\python.exe scripts\hf_launch.py status ID_DU_JOB
+.venv\Scripts\python.exe scripts\hf_launch.py logs ID_DU_JOB
+.venv\Scripts\python.exe scripts\hf_launch.py pull
+```
+
+`pull` recopie les résultats dans `hf_work\work`. Pour les vrais runs (à partir du vendredi) :
+`hf_launch.py run --timeout 10h --with-anthropic-key -- python ...`. Sans `--timeout`, le lanceur
+refuse : par défaut Hugging Face coupe un Job au bout de 30 minutes. Ta clé est envoyée comme
+secret chiffré, lue dans ta variable Windows ; elle n'est jamais affichée.
+**Règle : jamais la même file de runs en même temps sur le PC et sur Hugging Face.**
 
 ## 3. Si l'environnement n'existe plus
 
