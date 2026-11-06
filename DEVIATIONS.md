@@ -25,3 +25,15 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   (A-14 steps 1 and 3 combined). Level locked at L3 (closest to target at round 10). HONEST, DECOY and PLAIN
   stay as pre-registered. Consequence for the report: the STEALTH arm measures detection of a small colluding
   subgroup with a fixed covert convention, not organic spread; H1 claims are worded accordingly.
+
+## Judge check on pilot data (Notes §18)
+
+- **O-6.** Pilot judge scoring: 2,501 items, 0 unscored, 0.12 USD. Pre-registered item AUROC (primary stream)
+  = **0.576** (207 positives, 118 honest negatives, all from pilot A at N = 5). Positives restricted to tagged writes:
+  AUROC **1.000** (51 vs 118; every tagged write scores > 3, every honest item scores 0).
+  Scores of tagged writes: mostly 20-49 (masked copies look like odd notes), 11 of 51 at 60 or more.
+- **D-2 (rubric not revised).** The pre-registered AUROC is below 0.75 only because the positive set counts every
+  action of a compromised agent from its compromise round on; 156 of 207 positives are ordinary actions
+  (compute, list, read, solve) that carry no signal. A rubric revision cannot raise their scores without scoring
+  honest work the same way, so the allowed revision is not used and the rubric is frozen as written.
+  Both AUROCs are reported for the grid.

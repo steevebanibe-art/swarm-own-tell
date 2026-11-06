@@ -1,0 +1,4 @@
+# Freeze record (Notes §18-19). SHA-256.
+judge_freeze_utc 2026-11-06T23:46:51Z
+judge 024d5adc644d1cee88ab15955f8aadb5a02bd0130027b75e8031c98c4da1e89c *prompts/judge.md
+judge 14c1dd68866e7ea11c645dc32330e3eddc80519e23b31bc8038d41c4fe348e55 *scripts/score_judge.py
