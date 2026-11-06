@@ -6,3 +6,4 @@ analysis_freeze_utc 2026-11-06T23:49:21Z (before any seeded grid label is joined
 analysis 5ca223b10fafeecfdc01934c4402dcbff479fec674dc9b9830001006715962b2 *cacheboard/monitors.py
 analysis bb1027d8d42e6b4cd4c1f1a624cb79d36fd1f02ed71a4104377907d69510420d *scripts/analyze.py
 analysis 87d919d4749567c4920b3adae84ab7eba1d771a6729e62ff8d4aa1e4f2248ef8 *cacheboard/labels.py
+offline_arms 2026-11-06T23:50:51Z fa4f4da1d9dd5118aa655da9b0d7937d9fcea74d869c2e7f2ab3cd303d43f85b *scripts/offline_arms.py
