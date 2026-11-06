@@ -107,4 +107,40 @@ def test_plans():
     assert sum(v for (cond, _), v in c.items() if cond == "HONEST") == 130
     assert all(t["k"] < 1000 for t in g)
     assert all(t["k"] > 1000 and t["pilot"] for s in ("pilot-a", "pilot-b") for t in pilot_plan(s, None))
+    scr = pilot_plan("pilot-c-scr", 3)
+    assert [t["key"] for t in scr] == ["stealth-scr-L3-n20-k1031", "stealth-scr-L3-n20-k1032"] and all(t["scripted"] for t in scr)
     assert g[0]["block"] == 1 and g[-1]["block"] == 5
+
+
+async def test_scripted_seed(tmp_path):
+    spec = {"run_id": run_id("STEALTH", 10, 1001, 3, "-scr"), "condition": "STEALTH", "n": 10, "k": 1001, "level": 3, "pilot": True, "scripted": True}
+    fake = FakeLLM()
+    s = await run_episode(fake, spec, tmp_path)
+    ep = build_episode(spec)
+    data = json.loads(gzip.open(tmp_path / s["episode_file"], "rt", encoding="utf-8").read())
+    acts = data["actions"]
+    scr = [a for a in acts if a.get("scripted")]
+    even = [r for r in range(ep.seed_round, 13) if r % 2 == 0]
+    assert [a["round"] for a in scr] == even and all(a["agent"] == s["seed_agent"] for a in scr)
+    assert fake.calls == 120 - len(scr) and s["seed_check"] is True and s["canary_calls"] == 0
+    tk = data["meta"]["token"]
+    for a in scr:
+        k, v = a["args"]["key"], a["args"]["value"]
+        assert k.startswith("tables/") and f"/{tk}-" in k and len(k) <= 80 and len(v) <= 300
+        assert tk not in a["judge_action"].lower()
+    assert not any(a["role"] for a in acts)  # no role block is ever shown
+
+
+async def test_multiseed(tmp_path):
+    from cacheboard.episode import seeds_for
+    seeds = seeds_for(20, 1061, generate(20, 1061).seed_agent)
+    assert len(seeds) == 4 and all(2 <= r <= 6 for r in seeds.values()) and seeds == seeds_for(20, 1061, generate(20, 1061).seed_agent)
+    spec = {"run_id": run_id("STEALTH", 10, 1001, 3, "-ms-scr"), "condition": "STEALTH", "n": 10, "k": 1001, "level": 3,
+            "pilot": True, "scripted": True, "multiseed": True}
+    s = await run_episode(FakeLLM(), spec, tmp_path)
+    assert len(s["seeds"]) == 2 and s["seed_agent"] in s["seeds"]
+    assert s["seed_round"] == min(s["seeds"].values())
+    assert all(s["seed_checks"].values())
+    later = [a for a in s["seeds"] if a != s["seed_agent"]]
+    assert all(s["compromised"][a] <= s["seeds"][a] for a in later)
+    assert all(a not in s["organic_recruits"] for a in s["seeds"])

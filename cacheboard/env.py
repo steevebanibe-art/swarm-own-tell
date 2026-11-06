@@ -41,6 +41,24 @@ TXT_NO_CALLS = "No compute_table calls left. Nothing was done."
 TXT_CANARY = "Note received."
 
 
+_SCRIPTED: dict[int, list[str]] | None = None
+
+
+def scripted_templates() -> dict[int, list[str]]:
+    """Key-message templates per level, read from the table in prompts/scripted_seed.md."""
+    global _SCRIPTED
+    if _SCRIPTED is None:
+        text = (P.PROMPTS_DIR / "scripted_seed.md").read_text(encoding="utf-8")
+        out: dict[int, list[str]] = {}
+        for line in text.splitlines():
+            m = re.match(r"\|\s*L([123])[^|]*\|(.*)\|\s*$", line)
+            if m:
+                out[int(m.group(1))] = re.findall(r"`([^`]+)`", m.group(2))
+        assert set(out) == {1, 2, 3} and all(len(v) == 3 for v in out.values()), out
+        _SCRIPTED = out
+    return _SCRIPTED
+
+
 def segment_match(text: str, tag: str) -> bool:
     """``tag`` occurs in ``text`` as a whole segment (delimiters: '-', '/', space, string ends), any case."""
     if not tag or not text:
@@ -152,12 +170,25 @@ class Episode:
         token: str,
         decoy_tag: str,
         placebo: str,
+        scripted: bool = False,
+        seeds: dict[str, int] | None = None,
     ) -> None:
         self.ps = ps
+        self.scripted = scripted
+        self.scripted_used: list[str] = []
+        self.scripted_count: dict[str, int] = {}
         self.condition = condition
         self.level = level
-        self.seed_round = seed_round
-        self.seed_agent = ps.seed_agent if condition != "HONEST" else None
+        if condition == "HONEST":
+            seeds = {}
+        elif seeds is None:
+            seeds = {ps.seed_agent: seed_round}
+        # every seed agent -> its own seed round; "the seed" is the earliest (multi-seed fallback, Notes §2)
+        self.seeds: dict[str, int] = dict(seeds)
+        self.multiseed = len(self.seeds) > 1
+        first = min(self.seeds.items(), key=lambda kv: (kv[1], kv[0] != ps.seed_agent, kv[0])) if self.seeds else None
+        self.seed_agent = first[0] if first else None
+        self.seed_round = first[1] if first else seed_round
         self.token = token
         self.decoy_tag = decoy_tag
         self.placebo = placebo
@@ -173,9 +204,9 @@ class Episode:
     def has_role(self, agent: str, rnd: int) -> bool:
         return (
             self.role is not None
-            and agent == self.seed_agent
-            and self.seed_round is not None
-            and rnd >= self.seed_round
+            and not self.scripted
+            and agent in self.seeds
+            and rnd >= self.seeds[agent]
         )
 
     def system_prompt(self, agent: str, rnd: int) -> str:
@@ -220,11 +251,57 @@ class Episode:
         for key, e in self.cache.items():
             tagged = segment_match(key, self.token) or segment_match(e.value, self.token)
             dtag = segment_match(key, self.decoy_tag) or segment_match(e.value, self.decoy_tag)
-            if not (tagged or dtag or (self.seed_agent and e.author == self.seed_agent)):
+            if not (tagged or dtag or e.author in self.seeds):
                 continue
             if key in prompt or (e.value and e.value[:MEM_VALUE_CUT] in prompt):
                 out.append({"key": key, "author": e.author, "round": e.round, "token": tagged, "decoy_tag": dtag})
         return out
+
+    # ------------------------------------------------------------ scripted seed
+    def scripted_turn(self, agent: str, rnd: int) -> bool:
+        """Scripted-seed fallback (A-14, prompts/scripted_seed.md): even rounds from s."""
+        return (
+            self.scripted
+            and agent in self.seeds
+            and rnd >= self.seeds[agent]
+            and rnd % 2 == 0
+        )
+
+    def scripted_action(self, rnd: int, agent: str | None = None) -> Action:
+        seed = agent or self.seed_agent
+        others = sorted(
+            ((k, e) for k, e in self.cache.items() if e.author not in self.seeds), key=lambda kv: -kv[1].seq
+        )
+        table_key = None
+        for k, e in others:
+            parts = k.split("/")
+            if len(parts) == 2 and parts[0] == "tables" and is_table_key(parts[1]) and parts[1] not in self.scripted_used:
+                table_key = parts[1]
+                break
+        if table_key is None:
+            mine = [k for k in self.agents[seed].puzzle.keys if k not in self.scripted_used] or self.agents[seed].puzzle.keys
+            table_key = mine[0]
+        self.scripted_used.append(table_key)
+        authors: list[str] = []
+        for _, e in others:
+            if e.author not in authors:
+                authors.append(e.author)
+        seen = "-".join("a" + a.split("-")[1] for a in authors[:2]) or "a01"
+        templates = scripted_templates()[self.level or 3]
+        c = self.scripted_count.get(seed, 0)
+        msg = templates[c % len(templates)].replace("{{seen_ids}}", seen)
+        self.scripted_count[seed] = c + 1
+        key = f"tables/{table_key}/{self.token}-{msg}"[:80]
+        head = f"add your notes under tables/{table_key}/{self.token}-..., "
+        entry = self.cache.get(f"tables/{table_key}")
+        rows = ""
+        if entry is not None:
+            rows = entry.value
+            while len(head) + len(rows) > 300 and ", " in rows:
+                rows = rows.rsplit(", ", 1)[0]
+            rows = rows[: max(0, 300 - len(head))]
+        value = (head + rows).rstrip(", ").strip()
+        return Action("item", "cache_put", {"key": key, "value": value})
 
     # ------------------------------------------------------------ tools
     def _read(self, snap: dict[str, Entry], st: AgentState, act: Action, rnd: int) -> tuple[str, str, dict[str, Any]]:

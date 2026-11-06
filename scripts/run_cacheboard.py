@@ -39,11 +39,17 @@ HARD_CAP = 22.0
 SOFT_STOP = 19.0
 
 
-def task(cond: str, n: int, k: int, level: int | None, rank: int, block: int, pilot: bool = False) -> dict[str, Any]:
+def task(
+    cond: str, n: int, k: int, level: int | None, rank: int, block: int, pilot: bool = False, scripted: bool = False,
+    multiseed: bool = False,
+) -> dict[str, Any]:
     lv = None if cond == "HONEST" else level
+    var = ("-ms" if multiseed else "") + ("-scr" if scripted else "")
     return {
-        "key": run_id(cond, n, k, lv),
-        "run_id": run_id(cond, n, k, lv),
+        "key": run_id(cond, n, k, lv, var),
+        "run_id": run_id(cond, n, k, lv, var),
+        "scripted": scripted,
+        "multiseed": multiseed,
         "condition": cond,
         "n": n,
         "k": k,
@@ -64,10 +70,23 @@ def pilot_plan(stage: str, level: int | None) -> list[dict[str, Any]]:
             raise SystemExit("--level is required for pilot-c")
         base = {3: 1001, 2: 1011, 1: 1021}[level]  # fresh puzzles per level
         return [task("STEALTH", 20, base + i, level, i, 0, True) for i in range(3)]
+    if stage == "pilot-c-scr":  # A-14 step 1: scripted seed
+        if level is None:
+            raise SystemExit("--level is required for pilot-c-scr")
+        base = {3: 1031, 2: 1041, 1: 1051}[level]
+        return [task("STEALTH", 20, base + i, level, i, 0, True, scripted=True) for i in range(2)]
+    if stage == "pilot-c-ms":  # A-14 step 3: ceil(0.2N) staggered seeds, LLM seed + scripted seed variants
+        if level is None:
+            raise SystemExit("--level is required for pilot-c-ms")
+        base = {3: 1061, 2: 1071, 1: 1081}[level]
+        return [
+            task("STEALTH", 20, base + i, level, 2 * i + j, 0, True, scripted=bool(j), multiseed=True)
+            for i in range(2) for j in range(2)
+        ]
     raise SystemExit(f"unknown plan {stage}")
 
 
-def grid_plan(level: int, exploratory: bool = False) -> list[dict[str, Any]]:
+def grid_plan(level: int, exploratory: bool = False, stealth: str = "llm") -> list[dict[str, Any]]:
     """Interleaved queue of NOTES §14, in priority order (rank)."""
     order: list[tuple[str, int, int, int]] = []
     r = rng("cacheboard-queue-v1")
@@ -91,7 +110,11 @@ def grid_plan(level: int, exploratory: bool = False) -> list[dict[str, Any]]:
     order += [("PLAIN", 20, k, 5) for k in range(1, 16)]  # block 5
     if exploratory:
         order += [("DECOY", 40, k, 6) for k in range(1, 21)]  # block 6
-    return [task(c, n, k, level, i, b) for i, (c, n, k, b) in enumerate(order)]
+    ms = stealth == "ms-scr"  # A-14 fallback locked after the pilots (DEVIATIONS.md D-1)
+    return [
+        task(c, n, k, level, i, b, scripted=ms and c == "STEALTH", multiseed=ms and c == "STEALTH")
+        for i, (c, n, k, b) in enumerate(order)
+    ]
 
 
 class AbortWatch:
@@ -139,6 +162,7 @@ async def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-concurrency", type=int, default=64, help="API calls in flight")
     ap.add_argument("--exploratory", action="store_true", help="add block 6 (DECOY N=40)")
     ap.add_argument("--cost-per-call", type=float, default=None, help="pilot projection, for the abort check")
+    ap.add_argument("--stealth", choices=("llm", "ms-scr"), default="llm", help="STEALTH seeding in the grid")
     ap.add_argument("--only", default=None, help="comma-separated run ids to run (subset)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
@@ -146,7 +170,7 @@ async def main(argv: list[str] | None = None) -> int:
     if args.plan == "grid":
         if args.level is None:
             raise SystemExit("--level is required for the grid")
-        tasks = grid_plan(args.level, args.exploratory)
+        tasks = grid_plan(args.level, args.exploratory, args.stealth)
     else:
         tasks = pilot_plan(args.plan, args.level)
     if args.only:
