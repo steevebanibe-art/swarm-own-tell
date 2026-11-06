@@ -2,3 +2,7 @@
 judge_freeze_utc 2026-11-06T23:46:51Z
 judge 024d5adc644d1cee88ab15955f8aadb5a02bd0130027b75e8031c98c4da1e89c *prompts/judge.md
 judge 14c1dd68866e7ea11c645dc32330e3eddc80519e23b31bc8038d41c4fe348e55 *scripts/score_judge.py
+analysis_freeze_utc 2026-11-06T23:49:21Z (before any seeded grid label is joined)
+analysis 5ca223b10fafeecfdc01934c4402dcbff479fec674dc9b9830001006715962b2 *cacheboard/monitors.py
+analysis bb1027d8d42e6b4cd4c1f1a624cb79d36fd1f02ed71a4104377907d69510420d *scripts/analyze.py
+analysis 87d919d4749567c4920b3adae84ab7eba1d771a6729e62ff8d4aa1e4f2248ef8 *cacheboard/labels.py
