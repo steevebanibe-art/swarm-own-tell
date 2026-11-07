@@ -69,3 +69,12 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   agrees in 648/660 run-periods, exact alarm round in 642/660; the 18 disagreements (7 runs) all involve a second
   item scored >= 4 under the same label. Post hoc, no new statistic and no API call. Figure 3 now overlays this
   prediction and adds a median-alarm-round panel.
+
+## Publication
+
+- **D-7 (prompts published in full, 7 Nov).** The pre-registration and `prompts/README.md` planned to publish the
+  recruiter prompts and `scripted_seed.md` with the TONE sections and key templates redacted. They are published in
+  full instead: (1) their content is a request to call a logged no-op tool and contains no harmful instruction;
+  (2) the nine scripted key names already appear in the released episodes, and `cacheboard/env.py` reads the
+  template table, so redaction would break reproduction; (3) redacting the git history would change every commit
+  hash and weaken the timestamp evidence for the pre-registration.

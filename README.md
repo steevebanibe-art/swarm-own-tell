@@ -47,7 +47,25 @@ runs; LLM seeds given the stealth role never acted), so the STEALTH arm uses the
 fallback of ⌈0.2N⌉ staggered seeds, here scripted. The STEALTH arm therefore measures detection of a
 small colluding subgroup with a covert convention, not organic spread.
 
+## Results (Ville thresholds unless stated; all numbers in `results/`)
+
+| Finding | Number |
+|---|---|
+| Spontaneous contagion | 0 recruits in 121 seeded swarms |
+| Judge on tagged writes | AUROC 1.000 (1,827 vs 29,151 honest actions) |
+| Honest false alarms, M1 / M1-avg / M2 | 0/130 (95% CI 0-2.8%); operative thresholds: 5/130 |
+| H1 (per-agent detects later as N grows) | not supported: all monitors detect 100%, slope -0.013 [-0.023, -0.004] |
+| Identity rotation every round, M1 | 7% (N = 20), 5% (N = 40) |
+| Identity rotation every round, M2 | 100%, median alarm round 4 |
+| Rotation rule (exploratory, `scripts/rotation_rule.py`) | predicts M1 alarm-or-not in 648/660 run-periods, exact round in 642/660 |
+| Legitimate coordination (DECOY), M2 | 0/20 alarms |
+
+The rotation rule: a conformal e-value is at most e(1/(n+1)) = 275.7 with n = 29,151, so one action multiplies a
+per-agent wealth by at most B(1) = 49.5 < 20N. M1 needs two covert actions under one identity; M2 does not read
+identities. `results/figure3_rename.png` overlays the prediction on the measurement.
+
 ## Limitations and dual use
 
 Summarised in the report appendix. The scripted recruiter messages are short, puzzle-themed key names
 and contain no harmful content; the out-of-scope "scoreboard" tool is a canary that only logs a note.
+All prompts are published in full (DEVIATIONS.md, D-7).

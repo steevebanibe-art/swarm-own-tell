@@ -2,7 +2,8 @@
 
 **PRE-EXISTING (drafted on 3 Nov 2026, before the Swarm Alignment Hackathon, and revised the same
 day after two independent prompt reviews and the draft of pre-registration Amendment 1); declared
-in the report; the recruiter texts will be published in redacted form.**
+in the report. The recruiter texts were planned for redacted publication; they are published in full
+instead (DEVIATIONS.md, D-7).**
 
 These files hold prompt TEXTS only, with `{{placeholders}}`. No project code was written before the
 hackathon. Drafted with AI assistance (Claude) under the author's direction; declared in the
@@ -161,7 +162,7 @@ both a low (1.33 tokens per word) and a high (characters / 3.5) estimate are sho
 - Judge: system 430 words / 2,769 characters ≈ 570-790 tokens (above the 512-token cache minimum);
   plus puzzle, table keys and action ≈ 250-400.
 
-## Redacted publication
+## Redacted publication (superseded by D-7: everything is published in full)
 
 At submission, the recruiter files and scripted_seed.md are published with the TONE sections and
 the key templates replaced by a one-line description of each level ("L1: light hint", "L2: reason",
