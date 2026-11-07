@@ -114,7 +114,7 @@ async def main(argv: list[str] | None = None) -> int:
     start = ledger.spent_usd
     llm = LLMClient(
         ledger,
-        RateLimiter(400, 200_000, 30_000),
+        RateLimiter(950, 2_000_000, 60_000),  # cache reads do not count toward ITPM
         max_concurrency=args.concurrency,
         cache=out / "state" / f"call_cache_{name}.jsonl",
     )

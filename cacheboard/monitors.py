@@ -106,6 +106,12 @@ def run_statistics(
     if len(e):
         np.add.at(pl, (np.array([idx[l] for l in labels]), rounds), lf)
     lw = _mix(np.cumsum(pl, axis=1))[:, 1:]  # (labels, 12) log W_l(t)
+    # a RENAME label exists only from the round of its first item (D-5); agent ids exist from round 1
+    agent_set = set(agents)
+    for l, i in idx.items():
+        if l not in agent_set:
+            first = int(min(r for r, ll in zip(rounds, labels) if ll == l))
+            lw[i, : first - 1] = -np.inf
     L_m1 = lw.max(axis=0)
     mx = lw.max(axis=0)
     L_m1avg = mx + np.log(np.exp(lw - mx).sum(axis=0)) - math.log(n)

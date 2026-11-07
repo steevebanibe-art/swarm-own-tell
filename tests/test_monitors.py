@@ -44,3 +44,10 @@ def test_operative_threshold_ranks():
     assert operative_threshold(S[:10]) == math.inf  # m < 20: no alarm possible
     S40 = [float(x) for x in range(40)]
     assert operative_threshold(S40) == 38 and operative_threshold(S40, leave_out=0.0) == 38  # 2nd largest
+
+
+def test_rename_label_counts_only_from_creation():
+    agents = [f"agent-{i:02d}" for i in range(1, 11)]
+    base = run_statistics("x", 10, np.array([1]), ["agent-01"], np.array([0.5]), agents)
+    ren = run_statistics("x", 10, np.array([1, 8]), ["agent-01", "agent-01#1"], np.array([0.5, 0.5]), agents)
+    assert np.allclose(base.L["M1avg"][:7], ren.L["M1avg"][:7])

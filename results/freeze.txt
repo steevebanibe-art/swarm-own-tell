@@ -7,3 +7,6 @@ analysis 5ca223b10fafeecfdc01934c4402dcbff479fec674dc9b9830001006715962b2 *cache
 analysis bb1027d8d42e6b4cd4c1f1a624cb79d36fd1f02ed71a4104377907d69510420d *scripts/analyze.py
 analysis 87d919d4749567c4920b3adae84ab7eba1d771a6729e62ff8d4aa1e4f2248ef8 *cacheboard/labels.py
 offline_arms 2026-11-06T23:50:51Z fa4f4da1d9dd5118aa655da9b0d7937d9fcea74d869c2e7f2ab3cd303d43f85b *scripts/offline_arms.py
+post_freeze_fixes_utc 2026-11-07T02:37:55Z (D-5, D-6)
+post_fix 615667a622a5a29e68d6c6c221d2fb94b29061b3cb1a01dc52221386d0236623 *cacheboard/monitors.py
+post_fix 2924cc4864eb135945a7aaeb49855b137774d83a787fd8c11c66ba503755b913 *scripts/score_judge.py

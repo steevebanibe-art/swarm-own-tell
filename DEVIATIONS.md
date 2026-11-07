@@ -53,3 +53,9 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   10-run window the 50% rule fired. PLAIN is the secondary seeded condition and costs about 0.5 USD in total, so
   it is run to completion and its seed compliance reported; the seed-check abort rule now applies to STEALTH only.
   The running process was resumed by clearing a STOP file that carried only this reason.
+- **D-5 (RENAME label baseline, bug fix after the freeze).** In the first offline-arms run, a renamed label counted in
+  the M1-avg sum from round 1 instead of from its creation, which made M1-avg alarm at round 1 in renamed runs.
+  Fixed in `cacheboard/monitors.py` (labels created by RENAME enter the sum at their first item; test added).
+  Only RENAME uses such labels: the primary analysis output is byte-identical before and after the fix.
+- **D-6 (judge throughput, after the freeze).** The judge's client-side rate limiter was raised from 400 to 950
+  requests per minute to finish scoring in time; prompt, model, parameters and parsing are unchanged.
