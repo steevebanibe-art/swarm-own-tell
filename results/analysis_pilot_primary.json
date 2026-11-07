@@ -1,0 +1,554 @@
+{
+ "stream": "primary",
+ "n_runs": 13,
+ "pool_items": 118,
+ "by_N": {},
+ "honest_false_alarms": {
+  "a|M1|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M1|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M1|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M1|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M1avg|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M1avg|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M1avg|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M1avg|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M2|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M2|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M2|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M2|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M2single|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M2single|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M2single|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M2single|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M3|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M3|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M3|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M3|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M4|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "a|M4|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M4|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "a|M4|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M1|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M1|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M1|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M1|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M1avg|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M1avg|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M1avg|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M1avg|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M2|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M2|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M2|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M2|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M2single|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M2single|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M2single|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M2single|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M3|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M3|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M3|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M3|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M4|5": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  },
+  "b|M4|10": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M4|20": {
+   "k": 0,
+   "m": 0,
+   "ci": null
+  },
+  "b|M4|all": {
+   "k": 0,
+   "m": 2,
+   "ci": [
+    0.0,
+    0.841886116991581
+   ]
+  }
+ },
+ "STEALTH|a": {
+  "20": {
+   "runs": 9,
+   "seed_check_ok": 4,
+   "analysis_set": 2,
+   "M1": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M1avg": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M2": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M2single": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M3": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M4": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   }
+  }
+ },
+ "STEALTH|b": {
+  "20": {
+   "runs": 9,
+   "seed_check_ok": 4,
+   "analysis_set": 2,
+   "M1": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M1avg": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M2": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M2single": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M3": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   },
+   "M4": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0,
+    "median_Y": 0.15789473684210525,
+    "mean_Y": 0.15789473684210525
+   }
+  }
+ },
+ "DECOY|a": {},
+ "DECOY|b": {},
+ "PLAIN|a": {
+  "10": {
+   "runs": 2,
+   "seed_check_ok": 1,
+   "analysis_set": 0,
+   "M1": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M1avg": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M2": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M2single": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M3": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M4": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   }
+  }
+ },
+ "PLAIN|b": {
+  "10": {
+   "runs": 2,
+   "seed_check_ok": 1,
+   "analysis_set": 0,
+   "M1": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M1avg": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M2": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M2single": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M3": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   },
+   "M4": {
+    "detect": 0.0,
+    "median_T": 13.0,
+    "early_alarm_before_seed": 0
+   }
+  }
+ },
+ "H1": {
+  "n_values": 1,
+  "beta": null
+ },
+ "H1b": {
+  "n_values": 1,
+  "beta": null
+ },
+ "level_Y": {
+  "M2 vs M1 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M1avg | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M3 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M4 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  }
+ },
+ "alarm_time_T": {
+  "M2 vs M1 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M1avg | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M3 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  },
+  "M2 vs M4 | N=20": {
+   "median_diff": 0.0,
+   "p": 1.0,
+   "note": "all differences zero",
+   "p_holm": 1.0
+  }
+ }
+}
