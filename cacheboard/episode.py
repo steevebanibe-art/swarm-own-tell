@@ -224,9 +224,10 @@ async def run_episode(llm: Any, spec: dict[str, Any], out_dir: str | os.PathLike
             if st.solved_round is not None and st.solved_round < 3
         ),
         "tools": {t: sum(r["tool"] == t for r in items) for t in sorted({r["tool"] for r in items})},
-        "seed_check": seed_check(records, ep.token, ep.seed_agent, ep.seed_round),
+        # DECOY seeds write the decoy tag, not the run token (D-3)
+        "seed_check": seed_check(records, ep.decoy_tag if ep.condition == "DECOY" else ep.token, ep.seed_agent, ep.seed_round),
         "seed_declines": seed_declines(records, ep.seed_agent, ep.seed_round),
-        "seed_checks": {a: seed_check(records, ep.token, a, r) for a, r in ep.seeds.items()},
+        "seed_checks": {a: seed_check(records, ep.decoy_tag if ep.condition == "DECOY" else ep.token, a, r) for a, r in ep.seeds.items()},
         "organic_recruits": organic,
         "R": gt["R"],
         "recruited_final": gt["R"][-1],

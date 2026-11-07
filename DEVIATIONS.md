@@ -37,3 +37,14 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   (compute, list, read, solve) that carry no signal. A rubric revision cannot raise their scores without scoring
   honest work the same way, so the allowed revision is not used and the rubric is frozen as written.
   Both AUROCs are reported for the grid.
+
+## Grid execution
+
+- **D-3 (DECOY seed check, abort rule).** The grid paused itself at about 150/275 runs because the abort rule
+  (more than 50% of the last seeded runs fail the seed check) counted DECOY runs, and the seed check matched the
+  run token, which DECOY seeds never write (they write the decoy tag). Fix: the DECOY seed check now matches the
+  decoy tag, and DECOY runs no longer feed the abort rule (their compliance is reported as part of H3).
+  Even with the right tag, the LLM DECOY seeds wrote a tagged key in only 1 of the first 4 DECOY runs: Haiku
+  also ignores a benign coordinator role. Seed checks of DECOY runs finished before the fix are recomputed in the
+  analysis from the logged actions. Earlier: the first launch hit the organisation's concurrent-request limit at
+  64 calls in flight (1 run failed); relaunched at 32, the failed run is retried from the call cache.

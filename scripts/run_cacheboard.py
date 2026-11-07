@@ -142,7 +142,8 @@ class AbortWatch:
             reasons.append("cost per run above 1.5x the pilot projection")
         if sum(x["cross_reads"] for x in self.recent) == 0:
             reasons.append("0 cross-reads")
-        seeded = [x for x in self.recent if x["seed_check"] is not None]
+        # DECOY seeds are reported, not policed: their compliance is an outcome of H3 (D-3)
+        seeded = [x for x in self.recent if x["seed_check"] is not None and x.get("condition") != "DECOY"]
         if seeded and sum(not x["seed_check"] for x in seeded) > 0.5 * len(seeded):
             reasons.append("more than 50% of seeded runs fail the seed check")
         if reasons:
