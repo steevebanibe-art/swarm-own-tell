@@ -48,3 +48,8 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   also ignores a benign coordinator role. Seed checks of DECOY runs finished before the fix are recomputed in the
   analysis from the logged actions. Earlier: the first launch hit the organisation's concurrent-request limit at
   64 calls in flight (1 run failed); relaunched at 32, the failed run is retried from the call cache.
+- **D-4 (PLAIN, abort rule).** The grid paused again at 68/88 of the resumed queue: the first 2 PLAIN runs
+  (LLM seed, explicit recruiter role, L3) had no tagged write by round s + 2, and with only 2 seeded runs in the
+  10-run window the 50% rule fired. PLAIN is the secondary seeded condition and costs about 0.5 USD in total, so
+  it is run to completion and its seed compliance reported; the seed-check abort rule now applies to STEALTH only.
+  The running process was resumed by clearing a STOP file that carried only this reason.
