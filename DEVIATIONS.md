@@ -59,3 +59,13 @@ All pilot runs (k > 1000) are excluded from every analysis (Amendment 1). Total 
   Only RENAME uses such labels: the primary analysis output is byte-identical before and after the fix.
 - **D-6 (judge throughput, after the freeze).** The judge's client-side rate limiter was raised from 400 to 950
   requests per minute to finish scoring in time; prompt, model, parameters and parsing are unchanged.
+
+## Exploratory analyses added after the pre-registered results were seen
+
+- **E-1 (rotation-blindness rule, 7 Nov).** `scripts/rotation_rule.py` (output `results/rotation_rule.json`) states
+  an upper bound on the per-label wealth of M1 (one item cannot exceed B(1) = 49.5 < 20N with n = 29,151 honest
+  calibration items), derives from the scripted seed schedule alone when M1 can first alarm under identity refresh
+  every r rounds, and checks the prediction against the pre-registered RENAME arm at threshold (a): alarm or not
+  agrees in 648/660 run-periods, exact alarm round in 642/660; the 18 disagreements (7 runs) all involve a second
+  item scored >= 4 under the same label. Post hoc, no new statistic and no API call. Figure 3 now overlays this
+  prediction and adds a median-alarm-round panel.
